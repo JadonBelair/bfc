@@ -12,7 +12,7 @@ fn main() {
         Ok(stuff) => stuff,
         Err(e) => {
             println!("Error: {}", e);
-            println!("Usage: bfc filepath [args]");
+            println!("Usage: bfc [filepath] [flags]");
             return;
         }
     };
