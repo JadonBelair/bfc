@@ -1,7 +1,7 @@
 # bfc
 
 a really bad brainfuck "compiler". i kinda just cheat by writing a rust file and then just calling rustc on it, so its more of a brainfuck to rust converter than anything.
-there is no optimization, so large it can struggle to compile large files with lots of repeating actions. i might come back to this just to try and optimize it.
+there is no optimization, so it can struggle to compile large files with lots of repeating actions. i might come back to this just to try and optimize it but who knows.
 
 # usage
 
