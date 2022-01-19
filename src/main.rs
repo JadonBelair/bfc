@@ -1,4 +1,4 @@
-use std::{fs, process::Command, env, time::Instant};
+use std::{fs, io::Write, process::Command, env, time::Instant, path::Path};
 
 fn main() {
 
@@ -8,16 +8,14 @@ fn main() {
         args.push(String::from(""));
     }
 
-    let file  = match fs::read_to_string(&args[1]) {
-        Ok(stuff) => stuff,
+    let code: Vec<char>  = match fs::read_to_string(&args[1]) {
+        Ok(stuff) => stuff.chars().collect(),
         Err(e) => {
             println!("Error: {}", e);
             println!("Usage: bfc [filepath] [flags]");
             return;
         }
     };
-
-    let code = file.chars().collect::<Vec<char>>();
 
     let flags = &args[2..];
 
@@ -34,18 +32,26 @@ fn main() {
         }
     }
 
-    let now = Instant::now();
+    // gets path to the outputted rust file
+    let path = "./".to_owned() + name + ".rs";
 
-    let contents = generate_file_text(code);
-    
-    match fs::write("./".to_owned() + name + ".rs", contents) {
-        Ok(_) => (),
-        Err(e) => {
-            eprintln!("Error: {}\nABORTING!", e);
-            return;
+    // if the rust file exists, it gets deleted
+    let p = Path::new(path.as_str());
+    if p.exists() {
+        fs::remove_file(p).expect("error initializing file");
+        // this just makes sure that the old file is deleted before continuing
+        while p.exists() {
+
         }
     }
 
+    // creates a new rust file at the specified path
+    let file = fs::OpenOptions::new().append(true).create(true).open(p).expect("error creating file");
+
+    let now = Instant::now();
+
+    generate_file(code, file);
+    
     Command::new("rustc").args([(name.to_owned() + ".rs").as_str(), "-Clink-arg=/DEBUG:NONE"]).spawn().expect("Failed to compile file");
     let time = now.elapsed();
 
@@ -55,61 +61,61 @@ fn main() {
 
 }
 
-fn generate_file_text(code: Vec<char>) -> String {
-    let mut content = "".to_owned();
-
+fn generate_file(code: Vec<char>, mut file: std::fs::File) {
+    // will add the needed crate and method to read user input
+    // only if the user input command is found in source code
     if code.contains(&',') {
-        content += "use std::io::{self, Write};\n";
-        content += "
-fn read(memory: &mut [u8; MEM_SIZE], mem_index: usize) {
+        write!(file, "use std::io::{{self, Write}};\n").unwrap();
+        write!(file, "
+fn read(memory: &mut [u8; MEM_SIZE], mem_index: usize) {{
     io::stdout().flush().unwrap();
     let mut buf = String::new();
     io::stdin().read_line(&mut buf).unwrap();
     buf = buf.trim().to_string();
     let mut input: char = 0 as char;
-    if buf.len() != 0 {
+    if buf.len() != 0 {{
         input = buf.chars().collect::<Vec<char>>()[0];
-    }
+    }}
     memory[mem_index] = input as u8
-}\n";
+}}\n").unwrap();
     }
 
-    content += "const MEM_SIZE: usize = 30000;\n";
+    // defines the max size of the memory array
+    write!(file, "const MEM_SIZE: usize = 30000;\n").unwrap();
 
-    content += "fn main() {\n";
+    write!(file, "fn main() {{\n").unwrap();
 
+    // will only bother making the memory index mutable if needed
     if code.contains(&'>') || code.contains(&'<') {
-        content += "    let mut mem_index = 0;\n";
+        write!(file, "    let mut mem_index = 0;\n").unwrap();
     } else {
-        content += "    let mem_index = 0;\n";
+        write!(file, "    let mem_index = 0;\n").unwrap();
     }
 
-    content += "    let mut memory: [u8; MEM_SIZE] = [0; MEM_SIZE];\n";
+    write!(file, "    let mut memory: [u8; MEM_SIZE] = [0; MEM_SIZE];\n").unwrap();
 
-    for c in code.clone() {
+    for c in code {
 
         match c {
             // both '<' and '>' have cell rapping features enabled
-            '>' => content += "    mem_index = if mem_index == MEM_SIZE - 1 {0} else {mem_index + 1};\n",
-            '<' => content += "    mem_index = if mem_index == 0 {MEM_SIZE - 1} else {mem_index - 1};\n",
+            '>' => write!(file, "    mem_index = if mem_index == MEM_SIZE - 1 {{0}} else {{mem_index + 1}};\n").unwrap(),
+            '<' => write!(file, "    mem_index = if mem_index == 0 {{MEM_SIZE - 1}} else {{mem_index - 1}};\n").unwrap(),
             // both '+' and '-' wrap the numbers to avoid over/underflow
-            '+' => content += "    memory[mem_index] = if memory[mem_index] == 255 {0} else {memory[mem_index] + 1};\n",
-            '-' => content += "    memory[mem_index] = if memory[mem_index] == 0 {255} else {memory[mem_index] - 1};\n",
+            '+' => write!(file, "    memory[mem_index] = if memory[mem_index] == 255 {{0}} else {{memory[mem_index] + 1}};\n").unwrap(),
+            '-' => write!(file, "    memory[mem_index] = if memory[mem_index] == 0 {{255}} else {{memory[mem_index] - 1}};\n").unwrap(),
             // prints the current cell's value to the screen in ascii
-            '.' => content += "    print!(\"{}\", memory[mem_index] as char);\n",
+            '.' => write!(file, "    print!(\"{{}}\", memory[mem_index] as char);\n").unwrap(),
             // clears stdout stream so that input can be on the same line as a print!()
-            ',' => content += "    read(&mut memory, mem_index);\n",
+            ',' => write!(file, "    read(&mut memory, mem_index);\n").unwrap(),
             // will grab the end of the loop from the pre-generated loop table if the current cell's value is zero
-            '[' => content += "    while memory[mem_index] != 0 {\n",
+            '[' => write!(file, "    while memory[mem_index] != 0 {{\n").unwrap(),
             // grabs the start of the current loop using the pre-generated loop table if the current cell's value is not zero
-            ']' => content += "    }\n",
+            ']' => write!(file, "    }}\n").unwrap(),
             // ignores all other chars
             _ => ()
         }
     }
 
-    content += "}";
-
-    return content;
-
+    // closes the main function
+    write!(file, "}}").unwrap();
 }
