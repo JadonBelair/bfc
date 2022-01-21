@@ -1,36 +1,42 @@
-use std::{fs, io::Write, process::Command, env, time::Instant, path::Path};
+use std::{fs, io::Write, process::Command, time::Instant, path::Path};
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// Name of output file (no extension) 
+    #[clap(short = 'o', long, default_value = "output")]
+    output: String,
+
+    /// Shows how long compiler took
+    #[clap(short = 't', long)]
+    time: bool,
+
+    /// Will prevent the compiler from generating output to console
+    #[clap(short = 'q', long)]
+    quiet: bool,
+
+    /// File to compile
+    #[clap(name = "FILE")]
+    file: String
+}
 
 fn main() {
 
-    let mut args: Vec<String> = env::args().collect();
+    let args = Args::parse();
 
-    if args.len() == 1 {
-        args.push(String::from(""));
-    }
+    let file = args.file;
 
-    let code: Vec<char>  = match fs::read_to_string(&args[1]) {
+    let code: Vec<char>  = match fs::read_to_string(&file) {
         Ok(stuff) => stuff.chars().collect(),
         Err(e) => {
             println!("Error: {}", e);
-            println!("Usage: bfc [filepath] [flags]");
+            println!("run bfc --help for help");
             return;
         }
     };
 
-    let flags = &args[2..];
-
-    let mut dur = false;
-
-
-    let mut name = "output";
-
-    for (i, f) in flags.iter().enumerate() {
-        match f.as_str() {
-            "-time" => dur = true,
-            "-o" => name = flags[i+1].as_str(),
-            _ => ()
-        }
-    }
+    let name = args.output.as_str();
 
     // gets path to the outputted rust file
     let path = "./".to_owned() + name + ".rs";
@@ -55,9 +61,9 @@ fn main() {
     Command::new("rustc").args([(name.to_owned() + ".rs").as_str(), "-Clink-arg=/DEBUG:NONE"]).spawn().expect("Failed to compile file");
     let time = now.elapsed();
 
-    if dur {println!("The compiler took {:?}", time)}
+    if args.time && !args.quiet {println!("The compiler took {:?}", time)}
 
-    println!("The compiled file can be run with '.\\{}.exe'", name);
+    if !args.quiet {println!("The compiled file can be run with '.\\{}.exe'", name);}
 
 }
 

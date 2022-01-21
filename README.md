@@ -5,11 +5,13 @@ there is no optimization, so it can struggle to compile large files with lots of
 
 # usage
 
-generate the bfc.exe file with ```cargo build --release``` and find it located in ./target/release/ <br />
+generate the bfc.exe file with ```cargo build --release``` and find it located at .\target\release\bfc.exe <br />
 
-run the file with ```bfc [filepath] [flags]```
+run the file with ```.\bfc <FILE> [flags]```
 
 # current flags:
 
--time: tells you how long the compiler took to generate the exe file from source. <br />
--o: allows you to specify the name of the output file
+-t, --time: tells you how long the compiler took to generate the exe file from source. <br />
+-o, --output: allows you to specify the name of the output file <br />
+-q, --quiet: prevents the compiler form generating any output to the console
+
