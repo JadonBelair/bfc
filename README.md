@@ -13,5 +13,5 @@ run the file with ```.\bfc <FILE> [flags]```
 
 -t, --time: tells you how long the compiler took to generate the exe file from source. <br />
 -o, --output: allows you to specify the name of the output file <br />
--q, --quiet: prevents the compiler form generating any output to the console
+-q, --quiet: prevents the compiler from generating any output to the console
 
