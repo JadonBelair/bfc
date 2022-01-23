@@ -67,7 +67,7 @@ fn main() {
 
 }
 
-fn generate_file(code: Vec<char>, mut file: std::fs::File) {
+fn generate_file(code: Vec<char>, mut file: fs::File) {
     // will add the needed crate and method to read user input
     // only if the user input command is found in source code
     if code.contains(&',') {
