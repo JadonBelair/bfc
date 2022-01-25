@@ -1,11 +1,11 @@
-use std::{fs, io::Write, process::Command, time::Instant, path::Path};
 use clap::Parser;
+use std::{fs, io::Write, path::Path, process::Command, time::Instant};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    /// Name of output file (no extension) 
-    #[clap(short = 'o', long, default_value = "output")]
+    /// Name of output file (no extension)
+    #[clap(short = 'o', default_value = "output")]
     output: String,
 
     /// Shows how long compiler took
@@ -16,18 +16,21 @@ struct Args {
     #[clap(short = 'q', long)]
     quiet: bool,
 
+    /// Will run rustfmt on the generated rust file
+    #[clap(short = 'p', long)]
+    pretty: bool,
+
     /// File to compile
     #[clap(name = "FILE")]
-    file: String
+    file: String,
 }
 
 fn main() {
-
     let args = Args::parse();
 
-    let file = args.file;
+    let source_file = args.file;
 
-    let code: Vec<char>  = match fs::read_to_string(&file) {
+    let code: Vec<char> = match fs::read_to_string(&source_file) {
         Ok(stuff) => stuff.chars().collect(),
         Err(e) => {
             println!("Error: {}", e);
@@ -36,35 +39,55 @@ fn main() {
         }
     };
 
-    let name = args.output.as_str();
+    let name = args.output;
 
     // gets path to the outputted rust file
-    let path = "./".to_owned() + name + ".rs";
+    let mut path = Path::new(".").join(name);
+    path.set_extension("rs");
 
     // if the rust file exists, it gets deleted
-    let p = Path::new(path.as_str());
-    if p.exists() {
-        fs::remove_file(p).expect("error initializing file");
+    if path.exists() {
+        fs::remove_file(&path).expect("error initializing file");
         // this just makes sure that the old file is deleted before continuing
-        while p.exists() {
-
-        }
+        while path.exists() {}
     }
 
     // creates a new rust file at the specified path
-    let file = fs::OpenOptions::new().append(true).create(true).open(p).expect("error creating file");
+    let file = fs::OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open(&path)
+        .expect("error creating file");
 
     let now = Instant::now();
 
     generate_file(code, file);
-    
-    Command::new("rustc").args([(name.to_owned() + ".rs").as_str(), "-Clink-arg=/DEBUG:NONE"]).spawn().expect("Failed to compile file");
+
+    // formats the generated rust file if the pretty flag was set
+    if args.pretty {
+        Command::new("rustfmt")
+            .args([path.to_str().unwrap()])
+            .spawn()
+            .expect("Failed to compile file");
+    }
+
+    // compiles the generated rust file using rustc
+    Command::new("rustc")
+        .args([path.to_str().unwrap(), "-Clink-arg=/DEBUG:NONE"])
+        .spawn()
+        .expect("Failed to compile file");
+
     let time = now.elapsed();
 
-    if args.time && !args.quiet {println!("The compiler took {:?}", time)}
+    // will tell the user how long compilation took if the time flag was set
+    if args.time && !args.quiet {
+        println!("The compiler took {:?}", time)
+    }
 
-    if !args.quiet {println!("The compiled file can be run with '.\\{}.exe'", name);}
-
+    path.set_extension("exe");
+    if !args.quiet {
+        println!("The compiled file can be run at '{}'", path.to_str().unwrap());
+    }
 }
 
 fn generate_file(code: Vec<char>, mut file: fs::File) {
@@ -72,7 +95,8 @@ fn generate_file(code: Vec<char>, mut file: fs::File) {
     // only if the user input command is found in source code
     if code.contains(&',') {
         write!(file, "use std::io::{{self, Write}};\n").unwrap();
-        write!(file, "
+        write!(file,
+            "
 fn read(memory: &mut [u8; MEM_SIZE], mem_index: usize) {{
     io::stdout().flush().unwrap();
     let mut buf = String::new();
@@ -101,7 +125,6 @@ fn read(memory: &mut [u8; MEM_SIZE], mem_index: usize) {{
     write!(file, "    let mut memory: [u8; MEM_SIZE] = [0; MEM_SIZE];\n").unwrap();
 
     for c in code {
-
         match c {
             // both '<' and '>' have cell rapping features enabled
             '>' => write!(file, "    mem_index = if mem_index == MEM_SIZE - 1 {{0}} else {{mem_index + 1}};\n").unwrap(),
