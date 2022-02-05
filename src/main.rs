@@ -74,7 +74,7 @@ fn main() {
     // compiles the generated rust file using rustc
     Command::new("rustc")
         .args([path.to_str().unwrap(), "-Clink-arg=/DEBUG:NONE"])
-        .spawn()
+        .output()
         .expect("Failed to compile file");
 
     let time = now.elapsed();
