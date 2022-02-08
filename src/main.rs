@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::{fs, io::Write, path::Path, process::Command, time::Instant};
+use std::{fs, io::{BufReader, BufRead, Write}, path::Path, process::Command, time::Instant};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -28,16 +28,7 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let source_file = args.file;
-
-    let code: Vec<char> = match fs::read_to_string(&source_file) {
-        Ok(stuff) => stuff.chars().collect(),
-        Err(e) => {
-            println!("Error: {}", e);
-            println!("run bfc --help for help");
-            return;
-        }
-    };
+    let source_file = fs::File::open(args.file).expect("source file doesn't exist");
 
     let name = args.output;
 
@@ -61,7 +52,7 @@ fn main() {
 
     let now = Instant::now();
 
-    generate_file(code, file);
+    generate_file(source_file, file);
 
     // formats the generated rust file if the pretty flag was set
     if args.pretty {
@@ -90,12 +81,12 @@ fn main() {
     }
 }
 
-fn generate_file(code: Vec<char>, mut file: fs::File) {
-    // will add the needed crate and method to read user input
-    // only if the user input command is found in source code
-    if code.contains(&',') {
-        write!(file, "use std::io::{{self, Write}};\n").unwrap();
-        write!(file,
+fn generate_file(source: fs::File, mut dest: fs::File) {
+
+    let mut reader = BufReader::with_capacity(1, source);
+
+    write!(dest, "use std::io::{{self, Write}};\n").unwrap();
+    write!(dest,
             "
 fn read(memory: &mut [u8; MEM_SIZE], mem_index: usize) {{
     io::stdout().flush().unwrap();
@@ -108,43 +99,40 @@ fn read(memory: &mut [u8; MEM_SIZE], mem_index: usize) {{
     }}
     memory[mem_index] = input as u8
 }}\n").unwrap();
-    }
+    
 
     // defines the max size of the memory array
-    write!(file, "const MEM_SIZE: usize = 30000;\n").unwrap();
+    write!(dest, "const MEM_SIZE: usize = 30000;\n").unwrap();
+    write!(dest, "fn main() {{\n").unwrap();
+    write!(dest, "    let mut mem_index = 0;\n").unwrap();
+    write!(dest, "    let mut memory: [u8; MEM_SIZE] = [0; MEM_SIZE];\n").unwrap();
 
-    write!(file, "fn main() {{\n").unwrap();
+    while reader.fill_buf().unwrap() != [] {
 
-    // will only bother making the memory index mutable if needed
-    if code.contains(&'>') || code.contains(&'<') {
-        write!(file, "    let mut mem_index = 0;\n").unwrap();
-    } else {
-        write!(file, "    let mem_index = 0;\n").unwrap();
-    }
+        let c = reader.fill_buf().unwrap()[0] as char;
 
-    write!(file, "    let mut memory: [u8; MEM_SIZE] = [0; MEM_SIZE];\n").unwrap();
-
-    for c in code {
         match c {
             // both '<' and '>' have cell rapping features enabled
-            '>' => write!(file, "    mem_index = if mem_index == MEM_SIZE - 1 {{0}} else {{mem_index + 1}};\n").unwrap(),
-            '<' => write!(file, "    mem_index = if mem_index == 0 {{MEM_SIZE - 1}} else {{mem_index - 1}};\n").unwrap(),
+            '>' => write!(dest, "    mem_index = if mem_index == MEM_SIZE - 1 {{0}} else {{mem_index + 1}};\n").unwrap(),
+            '<' => write!(dest, "    mem_index = if mem_index == 0 {{MEM_SIZE - 1}} else {{mem_index - 1}};\n").unwrap(),
             // both '+' and '-' wrap the numbers to avoid over/underflow
-            '+' => write!(file, "    memory[mem_index] = if memory[mem_index] == 255 {{0}} else {{memory[mem_index] + 1}};\n").unwrap(),
-            '-' => write!(file, "    memory[mem_index] = if memory[mem_index] == 0 {{255}} else {{memory[mem_index] - 1}};\n").unwrap(),
+            '+' => write!(dest, "    memory[mem_index] = if memory[mem_index] == 255 {{0}} else {{memory[mem_index] + 1}};\n").unwrap(),
+            '-' => write!(dest, "    memory[mem_index] = if memory[mem_index] == 0 {{255}} else {{memory[mem_index] - 1}};\n").unwrap(),
             // prints the current cell's value to the screen in ascii
-            '.' => write!(file, "    print!(\"{{}}\", memory[mem_index] as char);\n").unwrap(),
+            '.' => write!(dest, "    print!(\"{{}}\", memory[mem_index] as char);\n").unwrap(),
             // clears stdout stream so that input can be on the same line as a print!()
-            ',' => write!(file, "    read(&mut memory, mem_index);\n").unwrap(),
+            ',' => write!(dest, "    read(&mut memory, mem_index);\n").unwrap(),
             // will grab the end of the loop from the pre-generated loop table if the current cell's value is zero
-            '[' => write!(file, "    while memory[mem_index] != 0 {{\n").unwrap(),
+            '[' => write!(dest, "    while memory[mem_index] != 0 {{\n").unwrap(),
             // grabs the start of the current loop using the pre-generated loop table if the current cell's value is not zero
-            ']' => write!(file, "    }}\n").unwrap(),
+            ']' => write!(dest, "    }}\n").unwrap(),
             // ignores all other chars
             _ => ()
         }
+
+        reader.consume(1);
     }
 
     // closes the main function
-    write!(file, "}}").unwrap();
+    write!(dest, "}}").unwrap();
 }
