@@ -82,13 +82,12 @@ fn main() {
 }
 
 fn generate_file(source: fs::File, mut dest: fs::File) {
-
+    
     let mut reader = BufReader::with_capacity(1, source);
 
     write!(dest, "use std::io::{{self, Write}};\n").unwrap();
     write!(dest,
-            "
-fn read(memory: &mut [u8; MEM_SIZE], mem_index: usize) {{
+"fn read(memory: &mut [u8; MEM_SIZE], mem_index: usize) {{
     io::stdout().flush().unwrap();
     let mut buf = String::new();
     io::stdin().read_line(&mut buf).unwrap();
@@ -100,7 +99,6 @@ fn read(memory: &mut [u8; MEM_SIZE], mem_index: usize) {{
     memory[mem_index] = input as u8
 }}\n").unwrap();
     
-
     // defines the max size of the memory array
     write!(dest, "const MEM_SIZE: usize = 30000;\n").unwrap();
     write!(dest, "fn main() {{\n").unwrap();
