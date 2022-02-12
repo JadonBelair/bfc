@@ -111,24 +111,59 @@ fn generate_file(source: fs::File, mut dest: fs::File) {
 
         match c {
             // both '<' and '>' have cell rapping features enabled
-            '>' => write!(dest, "    mem_index = if mem_index == MEM_SIZE - 1 {{0}} else {{mem_index + 1}};\n").unwrap(),
-            '<' => write!(dest, "    mem_index = if mem_index == 0 {{MEM_SIZE - 1}} else {{mem_index - 1}};\n").unwrap(),
+            '>' => {
+                write!(dest, "    mem_index = if mem_index == MEM_SIZE - 1 {{0}} else {{mem_index + 1}};\n").unwrap();
+                reader.consume(1);
+            },
+            '<' => {
+                write!(dest, "    mem_index = if mem_index == 0 {{MEM_SIZE - 1}} else {{mem_index - 1}};\n").unwrap();
+                reader.consume(1);
+            },
             // both '+' and '-' wrap the numbers to avoid over/underflow
-            '+' => write!(dest, "    memory[mem_index] = if memory[mem_index] == 255 {{0}} else {{memory[mem_index] + 1}};\n").unwrap(),
-            '-' => write!(dest, "    memory[mem_index] = if memory[mem_index] == 0 {{255}} else {{memory[mem_index] - 1}};\n").unwrap(),
+            '+' => {
+                let mut amount = 1;
+                reader.consume(1);
+
+                while reader.fill_buf().unwrap() != [] && reader.fill_buf().unwrap()[0] as char == c {
+                    amount += 1;
+                    reader.consume(1);
+                }
+                write!(dest, "    memory[mem_index] = if memory[mem_index] as u16 + {} > 255 {{(memory[mem_index] as u16 + {} - 255) as u8}} else {{memory[mem_index] + {}}};\n", amount, amount, amount).unwrap();
+            },
+            '-' => {
+                let mut amount = 1;
+                reader.consume(1);
+
+                while reader.fill_buf().unwrap() != [] && reader.fill_buf().unwrap()[0] as char == c {
+                    amount += 1;
+                    reader.consume(1);
+                }
+                write!(dest, "    memory[mem_index] = if memory[mem_index] as i16 - {} < 0 {{(255 as u16 + memory[mem_index] as u16 - {}) as u8}} else {{memory[mem_index] - {}}};\n", amount, amount, amount).unwrap();
+            },
             // prints the current cell's value to the screen in ascii
-            '.' => write!(dest, "    print!(\"{{}}\", memory[mem_index] as char);\n").unwrap(),
+            '.' => {
+                write!(dest, "    print!(\"{{}}\", memory[mem_index] as char);\n").unwrap();
+                reader.consume(1);
+            },
             // clears stdout stream so that input can be on the same line as a print!()
-            ',' => write!(dest, "    read(&mut memory, mem_index);\n").unwrap(),
+            ',' => {
+                write!(dest, "    read(&mut memory, mem_index);\n").unwrap();
+                reader.consume(1);
+            },
             // will grab the end of the loop from the pre-generated loop table if the current cell's value is zero
-            '[' => write!(dest, "    while memory[mem_index] != 0 {{\n").unwrap(),
+            '[' => {
+                write!(dest, "    while memory[mem_index] != 0 {{\n").unwrap();
+                reader.consume(1);
+            },
             // grabs the start of the current loop using the pre-generated loop table if the current cell's value is not zero
-            ']' => write!(dest, "    }}\n").unwrap(),
+            ']' => {
+                write!(dest, "    }}\n").unwrap();
+                reader.consume(1);
+            },
             // ignores all other chars
-            _ => ()
+            _ => reader.consume(1)
         }
 
-        reader.consume(1);
     }
 
     // closes the main function
