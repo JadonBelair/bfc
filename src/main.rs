@@ -124,21 +124,45 @@ fn generate_file(source: fs::File, mut dest: fs::File) {
                 let mut amount = 1;
                 reader.consume(1);
 
+                // calculates the number of "+" 
+                // symbols there are in a row
                 while reader.fill_buf().unwrap() != [] && reader.fill_buf().unwrap()[0] as char == c {
                     amount += 1;
                     reader.consume(1);
                 }
-                write!(dest, "    memory[mem_index] = if memory[mem_index] as u16 + {} > 255 {{(memory[mem_index] as u16 + {} - 255) as u8}} else {{memory[mem_index] + {}}};\n", amount, amount, amount).unwrap();
+                
+                // ensures that the amount to add
+                // is always less than 255
+                while amount >= 255 {
+                    amount -= 255;
+                }
+
+                // will only write line if there is a point to doing so
+                if amount > 0 {
+                    write!(dest, "    memory[mem_index] = if memory[mem_index] as u16 + {} > 255 {{(memory[mem_index] as u16 + {} - 255) as u8}} else {{memory[mem_index] + {}}};\n", amount, amount, amount).unwrap();
+                }
             },
             '-' => {
-                let mut amount = 1;
+                let mut amount: u16 = 1;
                 reader.consume(1);
 
+                // calculates the number of "-" 
+                // symbols there are in a row
                 while reader.fill_buf().unwrap() != [] && reader.fill_buf().unwrap()[0] as char == c {
                     amount += 1;
                     reader.consume(1);
                 }
-                write!(dest, "    memory[mem_index] = if memory[mem_index] as i16 - {} < 0 {{(255 as u16 + memory[mem_index] as u16 - {}) as u8}} else {{memory[mem_index] - {}}};\n", amount, amount, amount).unwrap();
+
+                // ensures that the amount to subtract
+                // is always less than 255
+                while amount >= 255 {
+                    amount -= 255;
+                }
+
+                // will only write line if there is a point to doing so
+                if amount > 0 {
+                    write!(dest, "    memory[mem_index] = if (memory[mem_index] as u16) < {} {{(256 as u16 + memory[mem_index] as u16 - {}) as u8}} else {{memory[mem_index] - {}}};\n", amount, amount, amount).unwrap();
+                }
             },
             // prints the current cell's value to the screen in ascii
             '.' => {
