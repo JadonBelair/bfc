@@ -15,5 +15,6 @@ run the file with ```bfc.exe <FILE> [flags]```
 -o: allows you to specify the name of the output file <br />
 -t, --time: tells you how long the compiler took to generate the exe file from source. <br />
 -q, --quiet: prevents the compiler from generating any output to the console <br />
--p, --pretty: runs rustfmt on the generated rust file, only use if you want to look at the source code easily
+-p, --pretty: runs rustfmt on the generated rust file, only use if you want to look at the source code easily <br />
+-i: runs the compiler in interpreter mode. its not optimized yet and was just kind of shoved in there, sooo...
 
