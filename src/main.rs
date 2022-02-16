@@ -1,5 +1,5 @@
 use clap::Parser;
-use std::{fs, io::{BufReader, BufRead, Write}, path::Path, process::Command, time::Instant};
+use std::{fs, io::{BufReader, BufRead, Write, self}, path::Path, process::Command, time::Instant, collections::HashMap};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -7,6 +7,10 @@ struct Args {
     /// Name of output file (no extension)
     #[clap(short = 'o', default_value = "output")]
     output: String,
+
+    /// Runs the file in interpreted mode
+    #[clap(short = 'i')]
+    interpret: bool,
 
     /// Shows how long compiler took
     #[clap(short = 't', long)]
@@ -28,56 +32,62 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    let source_file = fs::File::open(args.file).expect("source file doesn't exist");
+    let source_path = args.file;
 
-    let name = args.output;
+    let source_file = fs::File::open(&source_path).expect("source file doesn't exist");
 
-    // gets path to the outputted rust file
-    let mut path = Path::new(".").join(name);
-    path.set_extension("rs");
+    if !args.interpret {
+        let name = args.output;
 
-    // if the rust file exists, it gets deleted
-    if path.exists() {
-        fs::remove_file(&path).expect("error initializing file");
-        // this just makes sure that the old file is deleted before continuing
-        while path.exists() {}
-    }
+        // gets path to the outputted rust file
+        let mut path = Path::new(".").join(name);
+        path.set_extension("rs");
 
-    // creates a new rust file at the specified path
-    let file = fs::OpenOptions::new()
-        .append(true)
-        .create(true)
-        .open(&path)
-        .expect("error creating file");
+        // if the rust file exists, it gets deleted
+        if path.exists() {
+            fs::remove_file(&path).expect("error initializing file");
+            // this just makes sure that the old file is deleted before continuing
+            while path.exists() {}
+        }
 
-    let now = Instant::now();
+        // creates a new rust file at the specified path
+        let file = fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&path)
+            .expect("error creating file");
 
-    generate_file(source_file, file);
+        let now = Instant::now();
 
-    // formats the generated rust file if the pretty flag was set
-    if args.pretty {
-        Command::new("rustfmt")
-            .args([path.to_str().unwrap()])
-            .spawn()
+        generate_file(source_file, file);
+
+        // formats the generated rust file if the pretty flag was set
+        if args.pretty {
+            Command::new("rustfmt")
+                .args([path.to_str().unwrap()])
+                .spawn()
+                .expect("Failed to compile file");
+        }
+
+        // compiles the generated rust file using rustc
+        Command::new("rustc")
+            .args([path.to_str().unwrap(), "-Clink-arg=/DEBUG:NONE"])
+            .output()
             .expect("Failed to compile file");
-    }
 
-    // compiles the generated rust file using rustc
-    Command::new("rustc")
-        .args([path.to_str().unwrap(), "-Clink-arg=/DEBUG:NONE"])
-        .output()
-        .expect("Failed to compile file");
+        let time = now.elapsed();
 
-    let time = now.elapsed();
+        // will tell the user how long compilation took if the time flag was set
+        if args.time && !args.quiet {
+            println!("The compiler took {:?}", time)
+        }
 
-    // will tell the user how long compilation took if the time flag was set
-    if args.time && !args.quiet {
-        println!("The compiler took {:?}", time)
-    }
-
-    path.set_extension("exe");
-    if !args.quiet {
-        println!("The compiled file can be run at '{}'", path.to_str().unwrap());
+        path.set_extension("exe");
+        if !args.quiet {
+            println!("The compiled file can be run at '{}'", path.to_str().unwrap());
+        }
+    } else {
+        interpret(source_path);
     }
 }
 
@@ -192,4 +202,96 @@ fn generate_file(source: fs::File, mut dest: fs::File) {
 
     // closes the main function
     write!(dest, "}}").unwrap();
+}
+
+fn interpret(source: String) {
+
+    const MEM_SIZE: usize = 30000;
+
+    let content = fs::read_to_string(source);
+
+    let code = match content {
+        Ok(stuff) => {stuff.chars().collect::<Vec<char>>()},
+        Err(e) => {
+            println!("Error: {}", e);
+            return;
+        }
+    };
+
+    let mut mem_index = 0;
+    let mut instruction_pointer = 0;
+
+    let mut memory: [u8; MEM_SIZE] = [0; MEM_SIZE];
+
+    let loop_table = generate_loop_table(&code);
+
+    let code_length = code.len();
+
+    while instruction_pointer < code_length {
+        let c = code[instruction_pointer];
+
+        match c {
+            // both '<' and '>' have cell rapping features enabled
+            '>' => mem_index = if mem_index == MEM_SIZE - 1 {0} else {mem_index + 1},
+            '<' => mem_index = if mem_index == 0 {MEM_SIZE - 1} else {mem_index - 1},
+
+            // both '+' and '-' wrap the numbers to avoid over/underflow
+            '+' => memory[mem_index] = if memory[mem_index] == 255 {0} else {memory[mem_index] + 1},
+            '-' => memory[mem_index] = if memory[mem_index] == 0 {255} else {memory[mem_index] - 1},
+            // prints the current cell's value to the screen in ascii
+            '.' => print!("{}", memory[mem_index] as char),
+            // clears stdout stream so that input can be on the same line as a print!()
+            ',' => {
+                io::stdout().flush().unwrap();
+                let mut buf = String::new();
+                io::stdin().read_line(&mut buf).unwrap();
+                buf = buf.trim().to_string();
+                let mut input: char = 0 as char;
+                if buf.len() != 0 {
+                    input = buf.chars().collect::<Vec<char>>()[0];
+                }
+                memory[mem_index] = input as u8;
+            },
+            // will grab the end of the loop from the pre-generated loop table if the current cell's value is zero
+            '[' => {
+                if memory[mem_index] == 0 {
+
+                    instruction_pointer = loop_table.get(&instruction_pointer).unwrap().clone();
+                }
+            },
+            // grabs the start of the current loop using the pre-generated loop table if the current cell's value is not zero
+            ']' => {
+                if memory[mem_index] != 0 {
+                    instruction_pointer = loop_table.get(&instruction_pointer).unwrap().clone();
+                }
+            },
+            // ignores all other chars
+            _ => ()
+        }
+
+        instruction_pointer += 1;
+    }
+}
+
+// generates a hashmap of all the loops and their starting/ending points
+fn generate_loop_table(code: &Vec<char>) -> HashMap<usize, usize> {
+
+    let mut loop_stack: Vec<usize> = Vec::new();
+    let mut loop_table: HashMap<usize, usize> = HashMap::new();
+
+    for (ip, instruction) in code.iter().enumerate() {
+        match *instruction {
+            '[' => {
+                loop_stack.push(ip);
+            },
+            ']' => {
+                let loop_start = loop_stack.pop().unwrap();
+                loop_table.insert(loop_start, ip);
+                loop_table.insert(ip, loop_start);
+            },
+            _ => ()
+        }
+    }
+
+    loop_table
 }
