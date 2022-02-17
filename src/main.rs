@@ -142,8 +142,8 @@ fn generate_file(source: fs::File, mut dest: fs::File) {
                 }
                 
                 // ensures that the amount to add
-                // is always less than 255
-                amount %= 255;
+                // is always less than 256
+                amount %= 256;
 
                 // will only write line if there is a point to doing so
                 if amount > 0 {
