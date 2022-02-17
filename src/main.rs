@@ -143,13 +143,11 @@ fn generate_file(source: fs::File, mut dest: fs::File) {
                 
                 // ensures that the amount to add
                 // is always less than 255
-                while amount >= 255 {
-                    amount -= 255;
-                }
+                amount %= 255;
 
                 // will only write line if there is a point to doing so
                 if amount > 0 {
-                    write!(dest, "    memory[mem_index] = if memory[mem_index] as u16 + {} > 255 {{(memory[mem_index] as u16 + {} - 255) as u8}} else {{memory[mem_index] + {}}};\n", amount, amount, amount).unwrap();
+                    write!(dest, "    memory[mem_index] = ((memory[mem_index] as u16 + {}) % 256) as u8;\n", amount).unwrap();
                 }
             },
             '-' => {
@@ -164,14 +162,12 @@ fn generate_file(source: fs::File, mut dest: fs::File) {
                 }
 
                 // ensures that the amount to subtract
-                // is always less than 255
-                while amount >= 255 {
-                    amount -= 255;
-                }
+                // is always less than 256
+                amount %= 256;
 
                 // will only write line if there is a point to doing so
                 if amount > 0 {
-                    write!(dest, "    memory[mem_index] = if (memory[mem_index] as u16) < {} {{(256 as u16 + memory[mem_index] as u16 - {}) as u8}} else {{memory[mem_index] - {}}};\n", amount, amount, amount).unwrap();
+                    write!(dest, "    memory[mem_index] = ((memory[mem_index] as i16 - {}) % 256) as u8;\n", amount).unwrap();
                 }
             },
             // prints the current cell's value to the screen in ascii
