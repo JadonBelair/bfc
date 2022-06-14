@@ -1,6 +1,6 @@
 # bfc
 
-a really bad brainfuck "compiler". i kinda just cheat by writing a rust file and then just calling rustc on it, so its more of a brainfuck to rust converter than anything.
+a really bad brainfuck-to-rust transpiler and interpreter written in rust.
 addition and subtraction have been "optimized" but i honestly don't know if i broke something in the process.
 i'll get around to "optimizing" the rest some day.
 
