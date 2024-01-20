@@ -1,4 +1,4 @@
 /target
-output.asm
+*.asm
 output
 *.bf
