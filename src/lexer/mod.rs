@@ -1,5 +1,7 @@
 use std::{iter::Enumerate, str::Chars};
 
+pub mod token;
+
 pub struct Lexer<'a> {
     source: Enumerate<Chars<'a>>,
     current_char: char,
