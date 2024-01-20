@@ -3,8 +3,22 @@ use crate::lexer::token::{Token, TokenType};
 
 mod lexer;
 
-fn main() {
-    println!("Hello, world!");
+fn main() -> Result<(), std::io::Error> {
+    let file_path = &std::env::args().collect::<Vec<String>>()[1];
+    let file_content = std::fs::read_to_string(file_path)?;
+
+    let mut lexer = Lexer::new(&file_content);
+
+    let ir = lexer.lex();
+    let asm = generate_assembly(ir);
+
+    std::fs::write("output.asm", asm)?;
+
+    std::process::Command::new("fasm")
+        .arg("output.asm")
+        .status()?;
+
+    Ok(())
 }
 
 fn generate_assembly(tokens: Vec<Token>) -> String {
