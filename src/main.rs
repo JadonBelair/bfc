@@ -74,7 +74,7 @@ main:
             TokenType::JumpIfZero => {
                 output.push_str("    cmp byte [r8], 0\n");
                 output.push_str(&format!("    je jump_end_label_{jump_counter}\n"));
-                output.push_str(&format!("    jump_label_{jump_counter}:\n"));
+                output.push_str(&format!("jump_label_{jump_counter}:\n"));
                 jump_stack.push(jump_counter);
                 jump_counter += 1;
             },
@@ -82,7 +82,7 @@ main:
                 if let Some(counter) = jump_stack.pop() {
                     output.push_str("    cmp byte [r8], 0\n");
                     output.push_str(&format!("    jne jump_label_{counter}\n"));
-                    output.push_str(&format!("    jump_end_label_{counter}:\n"));
+                    output.push_str(&format!("jump_end_label_{counter}:\n"));
                 }
             }
         }
