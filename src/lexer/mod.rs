@@ -1,5 +1,7 @@
 use std::{iter::Enumerate, str::Chars};
 
+use crate::lexer::token::{Token, TokenType};
+
 pub mod token;
 
 pub struct Lexer<'a> {
@@ -43,5 +45,32 @@ impl<'a> Lexer<'a> {
         } else {
             self.current_char = '\0';
         }
+    }
+
+    pub fn lex(&mut self) -> Vec<Token> {
+        let mut jump_stack = Vec::new();
+        let mut tokens = Vec::new();
+
+        while self.current_char != '\0' {
+            match self.current_char {
+                '+' | '-' | '<' | '>' | '.' | ',' => {
+                    let matching_char = self.current_char;
+                    let token_type = TokenType::from(matching_char);
+                    let mut amount = 1;
+
+                    self.next();
+
+                    while self.current_char == matching_char {
+                        self.next();
+                        amount += 1;
+                    }
+
+                    tokens.push(Token { token_type, amount });
+                },
+                _ => ()
+            }
+        }
+
+        return tokens;
     }
 }

@@ -15,3 +15,19 @@ pub enum TokenType {
     JumpIfZero,
     JumpIfNotZero,
 }
+
+impl From<char> for TokenType {
+    fn from(value: char) -> Self {
+        match value {
+            '+' => Self::Add,
+            '-' => Self::Subtract,
+            '<' => Self::Left,
+            '>' => Self::Right,
+            '.' => Self::Output,
+            ',' => Self::Input,
+            '[' => Self::JumpIfZero,
+            ']' => Self::JumpIfNotZero,
+            _ => unreachable!(),
+        }
+    }
+}
