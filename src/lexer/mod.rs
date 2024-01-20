@@ -67,6 +67,27 @@ impl<'a> Lexer<'a> {
 
                     tokens.push(Token { token_type, amount });
                 },
+                '[' => {
+                    jump_stack.push(tokens.len());
+                    tokens.push(Token {
+                        token_type: TokenType::JumpIfZero,
+                        amount: 0,
+                    });
+                    self.next();
+                },
+                ']' => {
+                    if let Some(pos) = jump_stack.pop() {
+                        let diff = tokens.len() - pos;
+
+                        tokens.push(Token {
+                            token_type: TokenType::JumpIfNotZero,
+                            amount: diff - 1,
+                        });
+
+                        tokens[pos].amount = diff + 1;
+                    }
+                    self.next();
+                },
                 _ => ()
             }
         }
