@@ -1,21 +1,39 @@
+use clap::Parser;
+
 use crate::lexer::Lexer;
 use crate::lexer::token::{Token, TokenType};
 
 mod lexer;
 
-fn main() -> Result<(), std::io::Error> {
-    let file_path = &std::env::args().collect::<Vec<String>>()[1];
-    let file_content = std::fs::read_to_string(file_path)?;
+#[derive(Parser)]
+#[clap(author, version, about, long_about)]
+struct Args {
+    /// the name used for the generated assembly file and executable (no extension)
+    #[clap(short = 'o', default_value = "output")]
+    output: String,
 
-    let mut lexer = Lexer::new(&file_content);
+    /// path to the brainfuck source file
+    #[clap(name = "FILE")]
+    file: std::path::PathBuf,
+}
+
+fn main() -> Result<(), std::io::Error> {
+    let args = Args::parse();
+
+    let file_path = args.file;
+
+    let file_contents = std::fs::read_to_string(&file_path)?;
+
+    let mut lexer = Lexer::new(&file_contents);
 
     let ir = lexer.lex();
     let asm = generate_assembly(ir);
-
-    std::fs::write("output.asm", asm)?;
+    
+    let asm_file = format!("{}.asm", args.output);
+    std::fs::write(&asm_file, asm)?;
 
     std::process::Command::new("fasm")
-        .arg("output.asm")
+        .arg(&asm_file)
         .status()?;
 
     Ok(())
