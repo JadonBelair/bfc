@@ -1,3 +1,5 @@
+use std::process::{Command, Stdio, exit};
+
 use clap::Parser;
 
 use crate::lexer::Lexer;
@@ -32,11 +34,19 @@ fn main() -> Result<(), std::io::Error> {
     let asm_file = format!("{}.asm", args.output);
     std::fs::write(&asm_file, asm)?;
 
-    std::process::Command::new("fasm")
+    let status = Command::new("fasm")
         .arg(&asm_file)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()?;
 
-    Ok(())
+    if status.success() {
+        println!("program compiled successfully");
+        exit(0);
+    } else {
+        eprintln!("failed to compile program");
+        exit(1);
+    }
 }
 
 fn generate_assembly(tokens: Vec<Token>) -> String {
@@ -117,7 +127,7 @@ main:
                     output.push_str(&format!("jump_end_label_{counter}:\n"));
                 } else {
                     eprintln!("Error: missing matching open bracket");
-                    std::process::exit(1);
+                    exit(1);
                 }
             }
         }
@@ -126,7 +136,7 @@ main:
 
     if jump_stack.len() > 0 {
         eprintln!("Error: missing closing bracket");
-        std::process::exit(1);
+        exit(1);
     }
 
     output.push_str(
