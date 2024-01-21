@@ -115,8 +115,16 @@ main:
                     output.push_str("    cmp byte [r8], 0\n");
                     output.push_str(&format!("    jne jump_label_{counter}\n"));
                     output.push_str(&format!("jump_end_label_{counter}:\n"));
+                } else {
+                    eprintln!("Error: missing matching open bracket");
+                    std::process::exit(1);
                 }
             }
+        }
+
+        if jump_stack.len() > 0 {
+            eprintln!("Error: missing closing bracket");
+            std::process::exit(1);
         }
     }
 

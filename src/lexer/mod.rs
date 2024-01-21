@@ -85,11 +85,19 @@ impl<'a> Lexer<'a> {
                         });
 
                         tokens[pos].amount = diff + 1;
+                    } else {
+                        eprintln!("Error: missing matching open bracket");
+                        std::process::exit(1);
                     }
                     self.next();
                 },
                 _ => ()
             }
+        }
+
+        if jump_stack.len() > 0 {
+            eprintln!("Error: missing closing bracket");
+            std::process::exit(1);
         }
 
         return tokens;
