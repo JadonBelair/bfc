@@ -122,10 +122,11 @@ main:
             }
         }
 
-        if jump_stack.len() > 0 {
-            eprintln!("Error: missing closing bracket");
-            std::process::exit(1);
-        }
+    }
+
+    if jump_stack.len() > 0 {
+        eprintln!("Error: missing closing bracket");
+        std::process::exit(1);
     }
 
     output.push_str(
