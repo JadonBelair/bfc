@@ -92,16 +92,32 @@ main:
     for token in tokens {
         match token.token_type {
             TokenType::Add => {
-                output.push_str(&format!("    add byte[r8], {}\n", token.amount));
+                if token.amount > 1 {
+                    output.push_str(&format!("    add byte[r8], {}\n", token.amount));
+                } else {
+                    output.push_str("    inc byte[r8]\n");
+                }
             },
             TokenType::Subtract => {
-                output.push_str(&format!("    sub byte[r8], {}\n", token.amount));
+                if token.amount > 1 {
+                    output.push_str(&format!("    sub byte[r8], {}\n", token.amount));
+                } else {
+                    output.push_str("    dec byte[r8]\n");
+                }
             },
             TokenType::Left => {
-                output.push_str(&format!("    sub r8, {}\n", token.amount));
+                if token.amount > 1 {
+                    output.push_str(&format!("    sub r8, {}\n", token.amount));
+                } else {
+                    output.push_str("    dec r8\n");
+                }
             },
             TokenType::Right => {
-                output.push_str(&format!("    add r8, {}\n", token.amount));
+                if token.amount > 1 {
+                    output.push_str(&format!("    add r8, {}\n", token.amount));
+                } else {
+                    output.push_str("    inc r8\n");
+                }
             },
             TokenType::Output => {
                 for _ in 0..token.amount {
