@@ -70,15 +70,12 @@ write:
     syscall
     ret
 
-; this read section actually reads 3 bytes from stdin in order to get through the \r\n, so piping a file into stdin wont work as expected
 read:
     mov rax, SYS_read
     mov rdi, stdin
-    mov rsi, read_temp
-    mov rdx, 3
+    mov rsi, r8
+    mov rdx, 1
     syscall
-    mov rax, [read_temp] ; we use read_temp in order to not contaminate the bytes in the neighbouring cells with the \r\n
-    mov byte [r8], al
     ret
 
 main:
@@ -163,7 +160,6 @@ r#"
 
 segment readable writable
 bf_stack: rb 1000
-read_temp: rb 5
 "#
     );
 
